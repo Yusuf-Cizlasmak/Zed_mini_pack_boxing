@@ -75,3 +75,11 @@ Box16 dimensions: Width=20.98cm, Height=16.23cm, Depth=34.64cm
 Box17 dimensions: Width=21.04cm, Height=16.26cm, Depth=34.51cm
 Box18 dimensions: Width=21.05cm, Height=16.29cm, Depth=34.46cm
 Box19 dimensions: Width=21.14cm, Height=16.28cm, Depth=34.44cm
+Box1 dimensions: Width=21.23cm, Height=16.33cm, Depth=33.40cm
+Box2 dimensions: Width=21.12cm, Height=16.27cm, Depth=33.36cm
+Box3 dimensions: Width=21.10cm, Height=16.31cm, Depth=33.27cm
+Box4 dimensions: Width=21.20cm, Height=16.29cm, Depth=33.21cm
+Box5 dimensions: Width=21.14cm, Height=16.32cm, Depth=33.19cm
+Box6 dimensions: Width=21.18cm, Height=16.29cm, Depth=33.11cm
+Box7 dimensions: Width=21.14cm, Height=16.27cm, Depth=32.90cm
+Box8 dimensions: Width=21.33cm, Height=16.30cm, Depth=32.78cm
