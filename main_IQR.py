@@ -32,80 +32,114 @@ def load_model():
     model.to("cuda" if torch.cuda.is_available() else "cpu")
     return model
 
-
-def is_rectangular_box(bbox, aspect_ratio_threshold=0.3):
+def measure_box(zed, bbox):
     """
-    Verilen sınırlayıcı kutunun bir kutu olup olmadığını belirler.
+    Geliştirilmiş kutu ölçüm fonksiyonu
+    """
+    x1, y1, x2, y2 = map(int, bbox)
+    depth_values = []
+    width_measurements = []
+    height_measurements = []
 
-    bbox: [x1, y1, x2, y2] formatında sınırlayıcı kutu koordinatları
-    aspect_ratio_threshold: kabul edilebilir bir kutu için : (genişlik/yükseklik) oranı 
+    # Kamera bilgilerini al
+    cam_info = zed.get_camera_information()
+    fx = cam_info.camera_configuration.calibration_parameters.left_cam.fx
+    width = cam_info.camera_configuration.resolution.width
+    height = cam_info.camera_configuration.resolution.height
+
+    # Örnekleme noktalarını artır
+    step = max(1, min((x2 - x1) // 20, (y2 - y1) // 20))  # Daha yoğun örnekleme
+
+    # Derinlik görüntüsünü bir kere al
+    depth_map = sl.Mat()
+    zed.retrieve_measure(depth_map, sl.MEASURE.DEPTH)
+    depth_image = depth_map.get_data()
+
+    # Kenar noktalarını özel olarak örnekle
+    edge_points = []
+    
+    # Sol ve sağ kenarlar
+    for y in range(y1, y2, step):
+        if 0 <= y < height:
+            # Sol kenar
+            if 0 <= x1 < width:
+                edge_points.append((x1, y))
+            # Sağ kenar
+            if 0 <= x2 < width:
+                edge_points.append((x2, y))
+    
+    # Üst ve alt kenarlar
+    for x in range(x1, x2, step):
+        if 0 <= x < width:
+            # Üst kenar
+            if 0 <= y1 < height:
+                edge_points.append((x, y1))
+            # Alt kenar
+            if 0 <= y2 < height:
+                edge_points.append((x, y2))
+
+    # Kenar noktalarından ölçüm al
+    for x, y in edge_points:
+        depth = depth_image[y, x]
+        if 0 < depth < 1000:  # Geçerli derinlik değeri kontrolü
+            depth_values.append(depth)
+            
+            # Her nokta için genişlik ve yükseklik hesapla
+            width_mm = abs(x2 - x1) * depth / fx
+            height_mm = abs(y2 - y1) * depth / fx
+            
+            width_measurements.append(width_mm)
+            height_measurements.append(height_mm)
+
+    if depth_values:
+        # Aykırı değerleri temizle
+        depth_values = remove_outliers(depth_values)
+        width_measurements = remove_outliers(width_measurements)
+        height_measurements = remove_outliers(height_measurements)
+        
+        # Medyan değerleri kullan
+        median_depth = np.median(depth_values)
+        median_width = np.median(width_measurements)
+        median_height = np.median(height_measurements)
+        
+        return median_width, median_height, median_depth
+    return None, None, None
+
+def remove_outliers(data, threshold=1.5):
+    """
+    IQR yöntemi ile aykırı değerleri temizle
+    """
+    data = np.array(data)
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    return data[(data >= lower_bound) & (data <= upper_bound)]
+
+def is_rectangular_box(bbox, aspect_ratio_threshold=0.3, min_size=50):
+    """
+    Geliştirilmiş kutu doğrulama fonksiyonu
     """
     x1, y1, x2, y2 = bbox
     width = x2 - x1
     height = y2 - y1
+
+    if width < min_size or height < min_size:
+        return False
 
     if width == 0 or height == 0:
         return False
 
     aspect_ratio = min(width, height) / max(width, height)
 
-    # Genişlik ve yükseklik oranı eşik değerinden büyükse, bir kutu olarak kabul edilir
-    return aspect_ratio >= aspect_ratio_threshold
+    # Dikdörtgensellik kontrolü ekle
+    return (
+        aspect_ratio >= aspect_ratio_threshold and
+        abs(width - height) > min_size * 0.2  # En az %20 fark olmalı
+    )
 
 
-def measure_box(zed, bbox):
-    """
-    zed: ZED kamera nesnesi
-    bbox: [x1, y1, x2, y2] formatında sınırlayıcı kutu koordinatları
-
-    Verilen sınırlayıcı kutunun genişliğini, yüksekliğini ve derinliğini ölçer.
-    #* 3B noktaları 2B piksel koordinatlarına dönüştürür ve kutu içindeki derinlik değerlerinin ortanca değerini alır.
-    """
-    x1, y1, x2, y2 = map(int, bbox)  # Convert to integers: (x1, y1, x2, y2)
-    depth_values = [] # Derinlik değerlerini saklamak için liste
-
-    # Kamera çözünürlüğünü al
-    cam_info = zed.get_camera_information()
-    width = cam_info.camera_configuration.resolution.width
-    height = cam_info.camera_configuration.resolution.height
-
-
-    # Dikdörtgen çizilen kutu içerisindeki point cloud verilerini al ve derinlik değerini median al
-
-
-    step = max(1, min((x2 - x1) // 10, (y2 - y1) // 10))  # Step : 
-
-    for x in range(x1, x2, step):
-        for y in range(y1, y2, step):
-            if 0 <= y < height and 0 <= x < width:  
-                depth_value = sl.Mat()
-
-                #Her bi pixelin derinlik değerini al
-                zed.retrieve_measure(depth_value, sl.MEASURE.DEPTH)
-                depth_image = depth_value.get_data()
-                depth = depth_image[y, x]
-                
-                #Eğer derinlik değeri geçerli ve 0 ile 1000 arasında ise ekle
-                if (
-                    depth > 0 and depth < 1000
-                ):  # Filter out invalid and extreme depth values
-                    depth_values.append(depth)
-
-    # Eğer derinlik değerleri varsa
-    if depth_values:
-
-        
-        # Tüm dikdörtgen içerisindeki derinlik değerlerini sırala ve ortanca değeri al.
-        median_depth = sorted(depth_values)[len(depth_values) // 2]
-
-        # 3B noktayı 2B piksel koordinatlarına dönüştürme 
-        fx = cam_info.camera_configuration.calibration_parameters.left_cam.fx
-
-        # Genişlik ve yükseklik hesapla.
-        width = abs(x2 - x1) * median_depth / fx
-        height = abs(y2 - y1) * median_depth / fx
-        return width, height, median_depth
-    return None, None, None
 
 
 def detect_objects(model, frame, conf_threshold=0.5):
