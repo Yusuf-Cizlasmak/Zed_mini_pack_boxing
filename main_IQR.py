@@ -211,7 +211,9 @@ def main():
     init_params = sl.InitParameters()  # Başlangıç parametrelerini oluştur
 
 # DEPTH MODE : NEURAL= Yapay zeka destekli derinlik modu
-    init_params.depth_mode = sl.DEPTH_MODE.ULTRA
+    init_params.depth_mode = sl.DEPTH_MODE.NEURAL
+
+
 
 # COORDINATE UNITS : CM= Santimetre (DAHA HASSAS ÖLÇÜM İÇİN )
     init_params.coordinate_units = sl.UNIT.CENTIMETER
@@ -237,6 +239,10 @@ def main():
 
         # Kamera parametrelerini ayarla
         runtime_params = sl.RuntimeParameters()
+
+
+
+
         image = sl.Mat() # Kameradan alınan görüntüyü saklamak için Mat nesnesi
 
 
@@ -304,6 +310,8 @@ def main():
                 # Görüntü başka bir renk uzayında ise (RGBA), RGB'ye dönüştür
 
                 display_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+
+
                 cv2.imshow("ZED | 2D View", display_frame)
 
                 # Klavye işaretlerini al
